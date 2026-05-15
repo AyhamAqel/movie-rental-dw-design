@@ -11,16 +11,11 @@ def get_warehouse_engine():
 
     encoded_password = quote_plus(password)
 
-    server_url = (
-        f"mysql+pymysql://{username}:{encoded_password}@{host}:{port}"
-    )
-
+    server_url = f"mysql+pymysql://{username}:{encoded_password}@{host}:{port}"
     server_engine = create_engine(server_url)
 
     with server_engine.connect() as connection:
-        connection.execute(
-            text(f"CREATE DATABASE IF NOT EXISTS {database}")
-        )
+        connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {database}"))
         connection.commit()
 
     warehouse_url = (
@@ -37,8 +32,12 @@ def load_to_warehouse(tables):
         "dim_date",
         "dim_customer",
         "dim_film",
+        "dim_category",
+        "dim_actor",
         "dim_store",
         "dim_staff",
+        "bridge_film_category",
+        "bridge_film_actor",
         "fact_rental",
         "fact_payment",
         "fact_inventory"
