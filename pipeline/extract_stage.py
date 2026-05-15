@@ -33,6 +33,8 @@ def extract_data():
         "language",
         "category",
         "film_category",
+        "actor",
+        "film_actor",
         "inventory",
         "rental",
         "payment",
