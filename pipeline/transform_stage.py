@@ -4,14 +4,8 @@ import os
 
 def build_date_dimension(rental_df, payment_df):
     rental_dates = pd.to_datetime(rental_df["rental_date"]).dt.date
-    return_dates = pd.to_datetime(
-        rental_df["return_date"],
-        errors="coerce"
-    ).dt.date
-
-    payment_dates = pd.to_datetime(
-        payment_df["payment_date"]
-    ).dt.date
+    return_dates = pd.to_datetime(rental_df["return_date"], errors="coerce").dt.date
+    payment_dates = pd.to_datetime(payment_df["payment_date"]).dt.date
 
     all_dates = pd.concat([
         pd.Series(rental_dates),
@@ -19,20 +13,10 @@ def build_date_dimension(rental_df, payment_df):
         pd.Series(payment_dates)
     ]).dropna().drop_duplicates()
 
-    dim_date = pd.DataFrame({
-        "full_date": pd.to_datetime(all_dates)
-    })
+    dim_date = pd.DataFrame({"full_date": pd.to_datetime(all_dates)})
+    dim_date = dim_date.sort_values("full_date").reset_index(drop=True)
 
-    dim_date = dim_date.sort_values(
-        "full_date"
-    ).reset_index(drop=True)
-
-    dim_date["date_key"] = (
-        dim_date["full_date"]
-        .dt.strftime("%Y%m%d")
-        .astype(int)
-    )
-
+    dim_date["date_key"] = dim_date["full_date"].dt.strftime("%Y%m%d").astype(int)
     dim_date["day"] = dim_date["full_date"].dt.day
     dim_date["month"] = dim_date["full_date"].dt.month
     dim_date["quarter"] = dim_date["full_date"].dt.quarter
@@ -40,15 +24,7 @@ def build_date_dimension(rental_df, payment_df):
     dim_date["day_name"] = dim_date["full_date"].dt.day_name()
 
     return dim_date[
-        [
-            "date_key",
-            "full_date",
-            "day",
-            "month",
-            "quarter",
-            "year",
-            "day_name"
-        ]
+        ["date_key", "full_date", "day", "month", "quarter", "year", "day_name"]
     ]
 
 
@@ -65,18 +41,10 @@ def build_customer_dimension(customer, address, city, country):
         .merge(country, on="country_id", how="left")
     )
 
-    dim_customer["customer_key"] = range(
-        1,
-        len(dim_customer) + 1
-    )
+    dim_customer["customer_key"] = range(1, len(dim_customer) + 1)
+    dim_customer["full_name"] = dim_customer["first_name"] + " " + dim_customer["last_name"]
 
-    dim_customer["full_name"] = (
-        dim_customer["first_name"]
-        + " "
-        + dim_customer["last_name"]
-    )
-
-    dim_customer = dim_customer[
+    return dim_customer[
         [
             "customer_key",
             "customer_id",
@@ -90,52 +58,25 @@ def build_customer_dimension(customer, address, city, country):
         ]
     ].drop_duplicates()
 
-    return dim_customer
 
-
-def build_film_dimension(
-    film,
-    language,
-    film_category,
-    category
-):
+def build_film_dimension(film, language):
     film = film.drop(columns=["last_update"], errors="ignore")
     language = language.drop(columns=["last_update"], errors="ignore")
-    film_category = film_category.drop(columns=["last_update"], errors="ignore")
-    category = category.drop(columns=["last_update"], errors="ignore")
 
-    dim_film = (
-        film
-        .merge(
-            language[["language_id", "name"]],
-            on="language_id",
-            how="left"
-        )
-        .merge(
-            film_category,
-            on="film_id",
-            how="left"
-        )
-        .merge(
-            category[["category_id", "name"]],
-            on="category_id",
-            how="left",
-            suffixes=("_language", "_category")
-        )
+    dim_film = film.merge(
+        language[["language_id", "name"]],
+        on="language_id",
+        how="left"
     )
 
-    dim_film["film_key"] = range(
-        1,
-        len(dim_film) + 1
-    )
+    dim_film["film_key"] = range(1, len(dim_film) + 1)
 
     dim_film = dim_film.rename(columns={
         "title": "film_title",
-        "name_language": "language_name",
-        "name_category": "category_name"
+        "name": "language_name"
     })
 
-    dim_film = dim_film[
+    return dim_film[
         [
             "film_key",
             "film_id",
@@ -143,7 +84,6 @@ def build_film_dimension(
             "description",
             "release_year",
             "language_name",
-            "category_name",
             "rental_duration",
             "rental_rate",
             "length",
@@ -152,7 +92,43 @@ def build_film_dimension(
         ]
     ].drop_duplicates()
 
-    return dim_film
+
+def build_category_dimension(category):
+    category = category.drop(columns=["last_update"], errors="ignore")
+
+    dim_category = category.copy()
+    dim_category["category_key"] = range(1, len(dim_category) + 1)
+
+    dim_category = dim_category.rename(columns={
+        "name": "category_name"
+    })
+
+    return dim_category[
+        [
+            "category_key",
+            "category_id",
+            "category_name"
+        ]
+    ].drop_duplicates()
+
+
+def build_actor_dimension(actor):
+    actor = actor.drop(columns=["last_update"], errors="ignore")
+
+    dim_actor = actor.copy()
+    dim_actor["actor_key"] = range(1, len(dim_actor) + 1)
+
+    dim_actor["full_name"] = (
+        dim_actor["first_name"] + " " + dim_actor["last_name"]
+    )
+
+    return dim_actor[
+        [
+            "actor_key",
+            "actor_id",
+            "full_name"
+        ]
+    ].drop_duplicates()
 
 
 def build_store_dimension(store, address, city, country):
@@ -168,12 +144,9 @@ def build_store_dimension(store, address, city, country):
         .merge(country, on="country_id", how="left")
     )
 
-    dim_store["store_key"] = range(
-        1,
-        len(dim_store) + 1
-    )
+    dim_store["store_key"] = range(1, len(dim_store) + 1)
 
-    dim_store = dim_store[
+    return dim_store[
         [
             "store_key",
             "store_id",
@@ -185,26 +158,15 @@ def build_store_dimension(store, address, city, country):
         ]
     ].drop_duplicates()
 
-    return dim_store
-
 
 def build_staff_dimension(staff):
     staff = staff.drop(columns=["last_update"], errors="ignore")
 
     dim_staff = staff.copy()
+    dim_staff["staff_key"] = range(1, len(dim_staff) + 1)
+    dim_staff["full_name"] = dim_staff["first_name"] + " " + dim_staff["last_name"]
 
-    dim_staff["staff_key"] = range(
-        1,
-        len(dim_staff) + 1
-    )
-
-    dim_staff["full_name"] = (
-        dim_staff["first_name"]
-        + " "
-        + dim_staff["last_name"]
-    )
-
-    dim_staff = dim_staff[
+    return dim_staff[
         [
             "staff_key",
             "staff_id",
@@ -215,56 +177,75 @@ def build_staff_dimension(staff):
         ]
     ].drop_duplicates()
 
-    return dim_staff
 
+def build_bridge_film_category(film_category, dim_film, dim_category):
+    film_category = film_category.drop(columns=["last_update"], errors="ignore")
 
-def build_fact_rental(
-    rental,
-    inventory,
-    film,
-    dim_customer,
-    dim_film,
-    dim_store,
-    dim_staff
-):
-    rental = rental.drop(columns=["last_update"], errors="ignore")
-    inventory = inventory.drop(columns=["last_update"], errors="ignore")
-
-    fact_rental = rental.merge(
-        inventory,
-        on="inventory_id",
+    bridge = film_category.merge(
+        dim_film[["film_key", "film_id"]],
+        on="film_id",
         how="left"
     )
 
-    fact_rental["rental_date"] = pd.to_datetime(
-        fact_rental["rental_date"]
+    bridge = bridge.merge(
+        dim_category[["category_key", "category_id"]],
+        on="category_id",
+        how="left"
     )
 
-    fact_rental["return_date"] = pd.to_datetime(
-        fact_rental["return_date"],
-        errors="coerce"
+    bridge["film_category_bridge_key"] = range(1, len(bridge) + 1)
+
+    return bridge[
+        [
+            "film_category_bridge_key",
+            "film_key",
+            "category_key"
+        ]
+    ].drop_duplicates()
+
+
+def build_bridge_film_actor(film_actor, dim_film, dim_actor):
+    film_actor = film_actor.drop(columns=["last_update"], errors="ignore")
+
+    bridge = film_actor.merge(
+        dim_film[["film_key", "film_id"]],
+        on="film_id",
+        how="left"
     )
 
-    fact_rental["rental_date_key"] = (
-        fact_rental["rental_date"]
-        .dt.strftime("%Y%m%d")
-        .astype(int)
+    bridge = bridge.merge(
+        dim_actor[["actor_key", "actor_id"]],
+        on="actor_id",
+        how="left"
     )
 
-    fact_rental["return_date_key"] = (
-        fact_rental["return_date"]
-        .dt.strftime("%Y%m%d")
-    )
+    bridge["film_actor_bridge_key"] = range(1, len(bridge) + 1)
 
-    fact_rental["return_date_key"] = (
-        fact_rental["return_date_key"]
-        .fillna(0)
-        .astype(int)
-    )
+    return bridge[
+        [
+            "film_actor_bridge_key",
+            "film_key",
+            "actor_key"
+        ]
+    ].drop_duplicates()
+
+
+def build_fact_rental(rental, inventory, film, dim_customer, dim_film, dim_store, dim_staff):
+    rental = rental.drop(columns=["last_update"], errors="ignore")
+    inventory = inventory.drop(columns=["last_update"], errors="ignore")
+
+    fact_rental = rental.merge(inventory, on="inventory_id", how="left")
+
+    fact_rental["rental_date"] = pd.to_datetime(fact_rental["rental_date"])
+    fact_rental["return_date"] = pd.to_datetime(fact_rental["return_date"], errors="coerce")
+
+    fact_rental["rental_date_key"] = fact_rental["rental_date"].dt.strftime("%Y%m%d").astype(int)
+
+    fact_rental["return_date_key"] = fact_rental["return_date"].dt.strftime("%Y%m%d")
+    fact_rental["return_date_key"] = fact_rental["return_date_key"].fillna(0).astype(int)
 
     fact_rental["rental_duration_days"] = (
-        fact_rental["return_date"]
-        - fact_rental["rental_date"]
+        fact_rental["return_date"] - fact_rental["rental_date"]
     ).dt.days
 
     fact_rental = fact_rental.merge(
@@ -274,8 +255,7 @@ def build_fact_rental(
     )
 
     fact_rental["late_return_flag"] = (
-        fact_rental["rental_duration_days"]
-        > fact_rental["rental_duration"]
+        fact_rental["rental_duration_days"] > fact_rental["rental_duration"]
     ).astype(int)
 
     fact_rental["rental_count"] = 1
@@ -304,12 +284,9 @@ def build_fact_rental(
         how="left"
     )
 
-    fact_rental["rental_fact_key"] = range(
-        1,
-        len(fact_rental) + 1
-    )
+    fact_rental["rental_fact_key"] = range(1, len(fact_rental) + 1)
 
-    fact_rental = fact_rental[
+    return fact_rental[
         [
             "rental_fact_key",
             "rental_id",
@@ -325,46 +302,20 @@ def build_fact_rental(
         ]
     ]
 
-    return fact_rental
 
-
-def build_fact_payment(
-    payment,
-    rental,
-    inventory,
-    dim_customer,
-    dim_film,
-    dim_store,
-    dim_staff
-):
+def build_fact_payment(payment, rental, inventory, dim_customer, dim_film, dim_store, dim_staff):
     payment = payment.drop(columns=["last_update"], errors="ignore")
     rental = rental.drop(columns=["last_update"], errors="ignore")
     inventory = inventory.drop(columns=["last_update"], errors="ignore")
 
     fact_payment = (
         payment
-        .merge(
-            rental[["rental_id", "inventory_id"]],
-            on="rental_id",
-            how="left"
-        )
-        .merge(
-            inventory[["inventory_id", "film_id", "store_id"]],
-            on="inventory_id",
-            how="left"
-        )
+        .merge(rental[["rental_id", "inventory_id"]], on="rental_id", how="left")
+        .merge(inventory[["inventory_id", "film_id", "store_id"]], on="inventory_id", how="left")
     )
 
-    fact_payment["payment_date"] = pd.to_datetime(
-        fact_payment["payment_date"]
-    )
-
-    fact_payment["payment_date_key"] = (
-        fact_payment["payment_date"]
-        .dt.strftime("%Y%m%d")
-        .astype(int)
-    )
-
+    fact_payment["payment_date"] = pd.to_datetime(fact_payment["payment_date"])
+    fact_payment["payment_date_key"] = fact_payment["payment_date"].dt.strftime("%Y%m%d").astype(int)
     fact_payment["payment_count"] = 1
 
     fact_payment = fact_payment.merge(
@@ -391,16 +342,13 @@ def build_fact_payment(
         how="left"
     )
 
-    fact_payment["payment_fact_key"] = range(
-        1,
-        len(fact_payment) + 1
-    )
+    fact_payment["payment_fact_key"] = range(1, len(fact_payment) + 1)
 
     fact_payment = fact_payment.rename(columns={
         "amount": "payment_amount"
     })
 
-    fact_payment = fact_payment[
+    return fact_payment[
         [
             "payment_fact_key",
             "payment_id",
@@ -414,8 +362,6 @@ def build_fact_payment(
             "payment_count"
         ]
     ]
-
-    return fact_payment
 
 
 def build_fact_inventory(inventory, dim_film, dim_store):
@@ -438,12 +384,9 @@ def build_fact_inventory(inventory, dim_film, dim_store):
         how="left"
     )
 
-    fact_inventory["inventory_fact_key"] = range(
-        1,
-        len(fact_inventory) + 1
-    )
+    fact_inventory["inventory_fact_key"] = range(1, len(fact_inventory) + 1)
 
-    fact_inventory = fact_inventory[
+    return fact_inventory[
         [
             "inventory_fact_key",
             "inventory_id",
@@ -454,32 +397,21 @@ def build_fact_inventory(inventory, dim_film, dim_store):
         ]
     ]
 
-    return fact_inventory
-
 
 def save_csv_outputs(tables):
     output_folder = "transformed_data"
-
     os.makedirs(output_folder, exist_ok=True)
 
     for table_name, df in tables.items():
-        path = os.path.join(
-            output_folder,
-            f"{table_name}.csv"
-        )
-
+        path = os.path.join(output_folder, f"{table_name}.csv")
         df.to_csv(path, index=False)
-
         print(f"Saved CSV: {path}")
 
 
 def transform_data(raw):
     print("Transform stage started.")
 
-    dim_date = build_date_dimension(
-        raw["rental"],
-        raw["payment"]
-    )
+    dim_date = build_date_dimension(raw["rental"], raw["payment"])
 
     dim_customer = build_customer_dimension(
         raw["customer"],
@@ -490,10 +422,12 @@ def transform_data(raw):
 
     dim_film = build_film_dimension(
         raw["film"],
-        raw["language"],
-        raw["film_category"],
-        raw["category"]
+        raw["language"]
     )
+
+    dim_category = build_category_dimension(raw["category"])
+
+    dim_actor = build_actor_dimension(raw["actor"])
 
     dim_store = build_store_dimension(
         raw["store"],
@@ -502,8 +436,18 @@ def transform_data(raw):
         raw["country"]
     )
 
-    dim_staff = build_staff_dimension(
-        raw["staff"]
+    dim_staff = build_staff_dimension(raw["staff"])
+
+    bridge_film_category = build_bridge_film_category(
+        raw["film_category"],
+        dim_film,
+        dim_category
+    )
+
+    bridge_film_actor = build_bridge_film_actor(
+        raw["film_actor"],
+        dim_film,
+        dim_actor
     )
 
     fact_rental = build_fact_rental(
@@ -536,8 +480,12 @@ def transform_data(raw):
         "dim_date": dim_date,
         "dim_customer": dim_customer,
         "dim_film": dim_film,
+        "dim_category": dim_category,
+        "dim_actor": dim_actor,
         "dim_store": dim_store,
         "dim_staff": dim_staff,
+        "bridge_film_category": bridge_film_category,
+        "bridge_film_actor": bridge_film_actor,
         "fact_rental": fact_rental,
         "fact_payment": fact_payment,
         "fact_inventory": fact_inventory
@@ -546,5 +494,4 @@ def transform_data(raw):
     save_csv_outputs(transformed_tables)
 
     print("Transform stage completed.")
-
     return transformed_tables
