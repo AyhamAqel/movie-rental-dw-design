@@ -418,6 +418,45 @@ def build_fact_payment(
     return fact_payment
 
 
+def build_fact_inventory(inventory, dim_film, dim_store):
+    inventory = inventory.drop(columns=["last_update"], errors="ignore")
+
+    fact_inventory = inventory.copy()
+
+    fact_inventory["inventory_count"] = 1
+    fact_inventory["available_flag"] = 1
+
+    fact_inventory = fact_inventory.merge(
+        dim_film[["film_key", "film_id"]],
+        on="film_id",
+        how="left"
+    )
+
+    fact_inventory = fact_inventory.merge(
+        dim_store[["store_key", "store_id"]],
+        on="store_id",
+        how="left"
+    )
+
+    fact_inventory["inventory_fact_key"] = range(
+        1,
+        len(fact_inventory) + 1
+    )
+
+    fact_inventory = fact_inventory[
+        [
+            "inventory_fact_key",
+            "inventory_id",
+            "film_key",
+            "store_key",
+            "inventory_count",
+            "available_flag"
+        ]
+    ]
+
+    return fact_inventory
+
+
 def save_csv_outputs(tables):
     output_folder = "transformed_data"
 
@@ -487,6 +526,12 @@ def transform_data(raw):
         dim_staff
     )
 
+    fact_inventory = build_fact_inventory(
+        raw["inventory"],
+        dim_film,
+        dim_store
+    )
+
     transformed_tables = {
         "dim_date": dim_date,
         "dim_customer": dim_customer,
@@ -494,7 +539,8 @@ def transform_data(raw):
         "dim_store": dim_store,
         "dim_staff": dim_staff,
         "fact_rental": fact_rental,
-        "fact_payment": fact_payment
+        "fact_payment": fact_payment,
+        "fact_inventory": fact_inventory
     }
 
     save_csv_outputs(transformed_tables)
