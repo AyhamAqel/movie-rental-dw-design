@@ -11,14 +11,22 @@ def get_warehouse_engine():
 
     encoded_password = quote_plus(password)
 
-    server_url = f"mysql+pymysql://{username}:{encoded_password}@{host}:{port}"
+    server_url = (
+        f"mysql+pymysql://{username}:{encoded_password}@{host}:{port}"
+    )
+
     server_engine = create_engine(server_url)
 
     with server_engine.connect() as connection:
-        connection.execute(text(f"CREATE DATABASE IF NOT EXISTS {database}"))
+        connection.execute(
+            text(f"CREATE DATABASE IF NOT EXISTS {database}")
+        )
         connection.commit()
 
-    warehouse_url = f"mysql+pymysql://{username}:{encoded_password}@{host}:{port}/{database}"
+    warehouse_url = (
+        f"mysql+pymysql://{username}:{encoded_password}@{host}:{port}/{database}"
+    )
+
     return create_engine(warehouse_url)
 
 
